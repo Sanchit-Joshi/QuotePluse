@@ -1,0 +1,48 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-quotation}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-quotation_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-quotation}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-quotation}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-quotation}:${POSTGRES_PASSWORD:-quotation_dev_password}@db:5432/${POSTGRES_DB:-quotation}?schema=public
+      APP_URL: http://localhost:${APP_PORT:-3000}
+      PDF_STORAGE_DIR: /app/storage/pdfs
+      UPLOAD_STORAGE_DIR: /app/storage/uploads
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    volumes:
+      - app_storage:/app/storage
+      - app_uploads:/app/public/uploads
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+
+volumes:
+  postgres_data:
+  app_storage:
+  app_uploads:

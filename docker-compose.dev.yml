@@ -1,0 +1,15 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://${POSTGRES_USER:-quotation}:${POSTGRES_PASSWORD:-quotation_dev_password}@db:5432/${POSTGRES_DB:-quotation}?schema=public
+      APP_URL: http://localhost:${APP_PORT:-3000}
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    healthcheck:
+      disable: true

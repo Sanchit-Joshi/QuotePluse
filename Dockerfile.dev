@@ -1,0 +1,17 @@
+# Development image: full devDependencies, source mounted as a volume via
+# docker-compose.yml, Next.js dev server with hot reload. Based on
+# Playwright's image so PDF generation (ADR-007) works the same as in prod.
+
+FROM mcr.microsoft.com/playwright:v1.61.1-noble
+
+WORKDIR /app
+ENV NODE_ENV=development
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY . .
+
+EXPOSE 3000
+
+CMD ["npm", "run", "dev"]

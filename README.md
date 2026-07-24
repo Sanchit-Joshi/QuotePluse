@@ -1,36 +1,65 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# QuotePro — Quotation & Invoice Management
 
-## Getting Started
+A web application that replaces an Excel-based quotation/invoice workflow: fill in a form, get an instant, pixel-consistent PDF. Built with Next.js, TypeScript, Prisma, and PostgreSQL.
 
-First, run the development server:
+Full requirements, architecture, and design decisions live in [`/docs`](docs/) — start with [product-requirements.md](docs/product-requirements.md) and [architecture.md](docs/architecture.md).
+
+## Features
+Customer & product management, quotations with GST-aware totals (CGST/SGST/IGST), draft/finalize/duplicate/convert-to-invoice, invoices with payment status, auto-numbering, PDF preview/download/print, dashboard, company/bank/numbering settings, dark/light theme. See [functional-requirements.md](docs/functional-requirements.md) for the full list and [future-roadmap.md](docs/future-roadmap.md) for what's intentionally out of scope for this MVP.
+
+## Tech Stack
+Next.js 16 (App Router) · TypeScript (strict) · Tailwind CSS + shadcn/ui (Base UI) · React Hook Form + Zod · TanStack Query · Prisma 7 (driver adapters) · PostgreSQL 16 · Playwright (PDF generation) · Vitest + Playwright Test.
+
+## Getting Started (local, no Docker)
+
+Prerequisites: Node.js 22+, a local PostgreSQL 16 instance (or run `docker run -d -p 5432:5432 -e POSTGRES_USER=quotation -e POSTGRES_PASSWORD=quotation_dev_password -e POSTGRES_DB=quotation postgres:16-alpine`).
 
 ```bash
+npm install
+cp .env.example .env          # edit DATABASE_URL if your Postgres differs
+npx prisma migrate dev        # creates tables
+npx playwright install chromium
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Getting Started (Docker)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+docker compose up --build
+```
+This starts PostgreSQL and the app together, running migrations automatically. See [docker.md](docs/docker.md) for the dev-mode override and [deployment.md](docs/deployment.md) for cloud deployment guides (Railway, Render, DigitalOcean, AWS, Azure).
 
-## Learn More
+## Scripts
+```bash
+npm run dev             # start dev server
+npm run build            # production build
+npm run start            # start production server (after build)
+npm run lint              # ESLint
+npm run typecheck          # tsc --noEmit
+npm run test               # vitest (unit + integration)
+npm run test:coverage       # vitest with coverage report
+npm run test:e2e             # Playwright end-to-end tests
+npm run prisma:migrate        # prisma migrate dev
+npm run prisma:studio          # Prisma Studio (browse the DB)
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Documentation Index
+| Doc | Purpose |
+|---|---|
+| [product-requirements.md](docs/product-requirements.md) | Problem, goal, success criteria, scope |
+| [functional-requirements.md](docs/functional-requirements.md) | Detailed FRs per module |
+| [non-functional-requirements.md](docs/non-functional-requirements.md) | Performance, security, accessibility, maintainability |
+| [architecture.md](docs/architecture.md) | System/data-flow/user-flow diagrams, tech stack rationale |
+| [database-design.md](docs/database-design.md) | ER diagram, schema rationale |
+| [api-spec.md](docs/api-spec.md) | REST endpoint reference |
+| [frontend-architecture.md](docs/frontend-architecture.md) / [backend-architecture.md](docs/backend-architecture.md) | Layering, folder structure |
+| [security.md](docs/security.md) | Threat model, OWASP checklist |
+| [testing.md](docs/testing.md) | Test strategy, coverage, manual checklist |
+| [docker.md](docs/docker.md) / [deployment.md](docs/deployment.md) | Containerization and cloud deployment |
+| [known-limitations.md](docs/known-limitations.md) / [future-roadmap.md](docs/future-roadmap.md) | What's deliberately not done yet |
+| [decision-log.md](docs/decision-log.md) | ADRs — why things are built the way they are |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## License
+Proprietary — internal business tool.

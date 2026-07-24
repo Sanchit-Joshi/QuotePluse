@@ -1,0 +1,280 @@
+// Prisma schema — see docs/database-design.md for the full design rationale.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum DocumentType {
+  QUOTATION
+  INVOICE
+}
+
+enum NumberingResetRule {
+  NEVER
+  YEARLY
+  FINANCIAL_YEAR
+}
+
+enum QuotationStatus {
+  DRAFT
+  SENT
+  APPROVED
+  CANCELLED
+  CONVERTED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  PENDING
+  PAID
+  CANCELLED
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  STATUS_CHANGE
+  PDF_GENERATE
+}
+
+enum AuditEntityType {
+  QUOTATION
+  INVOICE
+  CUSTOMER
+  ITEM
+  SETTINGS
+}
+
+model Company {
+  id            String   @id @default(cuid())
+  name          String
+  gstin         String?
+  addressLine1  String
+  addressLine2  String?
+  state         String
+  logoUrl       String?
+  signatoryName String?
+  signatureUrl  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  bankDetail         BankDetail?
+  numberingSequences NumberingSequence[]
+
+  @@map("companies")
+}
+
+model BankDetail {
+  id            String  @id @default(cuid())
+  companyId     String  @unique
+  company       Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  accountName   String
+  accountNumber String
+  ifsc          String
+  bankName      String
+  branch        String
+
+  @@map("bank_details")
+}
+
+model NumberingSequence {
+  id            String             @id @default(cuid())
+  companyId     String
+  company       Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  documentType  DocumentType
+  prefix        String
+  nextNumber    Int                @default(1)
+  resetRule     NumberingResetRule @default(NEVER)
+  lastResetYear Int?
+
+  @@unique([companyId, documentType])
+  @@map("numbering_sequences")
+}
+
+model Customer {
+  id              String    @id @default(cuid())
+  name            String
+  gstin           String?
+  billingAddress  String
+  shippingAddress String?
+  state           String
+  phone           String?
+  email           String?
+  /// Vendor/reference code this customer has assigned to us (common with
+  /// PSU/government clients like bank branches) — printed on their
+  /// invoices/quotations when set. See docs/decision-log.md ADR-009.
+  referenceCode   String?
+  notes           String?
+  deletedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  quotations Quotation[]
+  invoices   Invoice[]
+
+  @@index([name])
+  @@index([gstin])
+  @@map("customers")
+}
+
+model Item {
+  id                    String    @id @default(cuid())
+  name                  String
+  description           String?
+  hsnSac                String?
+  unit                  String
+  defaultUnitPricePaise Int
+  defaultGstRate        Decimal   @db.Decimal(5, 2)
+  deletedAt             DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  quotationLineItems QuotationLineItem[]
+  invoiceLineItems   InvoiceLineItem[]
+
+  @@index([name])
+  @@map("items")
+}
+
+model Quotation {
+  id                   String          @id @default(cuid())
+  number               String?         @unique
+  customerId           String
+  customer             Customer        @relation(fields: [customerId], references: [id])
+  status               QuotationStatus @default(DRAFT)
+  issueDate            DateTime
+  validUntil           DateTime?
+  subtotalPaise        Int             @default(0)
+  discountPaise        Int             @default(0)
+  documentDiscountPct  Decimal         @default(0) @db.Decimal(5, 2)
+  cgstPaise            Int             @default(0)
+  sgstPaise            Int             @default(0)
+  igstPaise            Int             @default(0)
+  roundingPaise        Int             @default(0)
+  grandTotalPaise      Int             @default(0)
+  notes                String?
+  terms                String?
+  convertedToInvoiceId String?         @unique
+  convertedToInvoice   Invoice?        @relation("QuotationToInvoice", fields: [convertedToInvoiceId], references: [id])
+  version              Int             @default(1)
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  lineItems QuotationLineItem[]
+  versions  QuotationVersion[]
+
+  @@index([status, issueDate])
+  @@index([customerId])
+  @@map("quotations")
+}
+
+model QuotationLineItem {
+  id             String    @id @default(cuid())
+  quotationId    String
+  quotation      Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  itemId         String?
+  item           Item?     @relation(fields: [itemId], references: [id])
+  description    String
+  quantity       Decimal   @db.Decimal(12, 2)
+  unitPricePaise Int
+  discountPct    Decimal   @default(0) @db.Decimal(5, 2)
+  gstRate        Decimal   @db.Decimal(5, 2)
+  lineTotalPaise Int
+  sortOrder      Int       @default(0)
+
+  @@index([quotationId])
+  @@map("quotation_line_items")
+}
+
+model QuotationVersion {
+  id            String    @id @default(cuid())
+  quotationId   String
+  quotation     Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  versionNumber Int
+  snapshot      Json
+  createdAt     DateTime  @default(now())
+
+  @@index([quotationId])
+  @@map("quotation_versions")
+}
+
+model Invoice {
+  id                     String        @id @default(cuid())
+  number                 String?       @unique
+  customerId             String
+  customer               Customer      @relation(fields: [customerId], references: [id])
+  convertedFromQuotation Quotation?    @relation("QuotationToInvoice")
+  status                 InvoiceStatus @default(DRAFT)
+  issueDate              DateTime
+  dueDate                DateTime?
+  paidDate               DateTime?
+  subtotalPaise          Int           @default(0)
+  discountPaise          Int           @default(0)
+  documentDiscountPct    Decimal       @default(0) @db.Decimal(5, 2)
+  cgstPaise              Int           @default(0)
+  sgstPaise              Int           @default(0)
+  igstPaise              Int           @default(0)
+  roundingPaise          Int           @default(0)
+  grandTotalPaise        Int           @default(0)
+  notes                  String?
+  terms                  String?
+  version                Int           @default(1)
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+
+  lineItems InvoiceLineItem[]
+  versions  InvoiceVersion[]
+
+  @@index([status, issueDate])
+  @@index([customerId])
+  @@map("invoices")
+}
+
+model InvoiceLineItem {
+  id             String  @id @default(cuid())
+  invoiceId      String
+  invoice        Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  itemId         String?
+  item           Item?   @relation(fields: [itemId], references: [id])
+  description    String
+  quantity       Decimal @db.Decimal(12, 2)
+  unitPricePaise Int
+  discountPct    Decimal @default(0) @db.Decimal(5, 2)
+  gstRate        Decimal @db.Decimal(5, 2)
+  lineTotalPaise Int
+  sortOrder      Int     @default(0)
+
+  @@index([invoiceId])
+  @@map("invoice_line_items")
+}
+
+model InvoiceVersion {
+  id            String   @id @default(cuid())
+  invoiceId     String
+  invoice       Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  versionNumber Int
+  snapshot      Json
+  createdAt     DateTime @default(now())
+
+  @@index([invoiceId])
+  @@map("invoice_versions")
+}
+
+model AuditLog {
+  id         String          @id @default(cuid())
+  entityType AuditEntityType
+  entityId   String
+  action     AuditAction
+  metadata   Json?
+  actor      String          @default("system")
+  createdAt  DateTime        @default(now())
+
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}

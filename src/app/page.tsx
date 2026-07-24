@@ -1,65 +1,99 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useState } from "react";
+import Link from "next/link";
+import { FileText, LayoutDashboard } from "lucide-react";
+import { PageHeader } from "@/components/shared/page-header";
+import { ErrorState } from "@/components/shared/error-state";
+import { EmptyState } from "@/components/shared/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { useDashboardSummary } from "@/features/dashboard/hooks/use-dashboard-summary";
+import { formatPaiseAsCurrency } from "@/lib/money";
+
+const STATUS_ORDER = ["DRAFT", "SENT", "PENDING", "APPROVED", "PAID", "CANCELLED", "CONVERTED"];
+
+export default function DashboardPage() {
+  const [period, setPeriod] = useState<"month" | "quarter">("month");
+  const { data, isLoading, isError, refetch } = useDashboardSummary(period);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div>
+      <PageHeader
+        title="Dashboard"
+        description="Overview of your quotations and invoices."
+        actions={
+          <Tabs value={period} onValueChange={(v) => setPeriod(v as "month" | "quarter")}>
+            <TabsList>
+              <TabsTrigger value="month">This month</TabsTrigger>
+              <TabsTrigger value="quarter">This quarter</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        }
+      />
+
+      {isLoading ? (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-24" />
+          ))}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      ) : isError ? (
+        <ErrorState onRetry={() => refetch()} />
+      ) : (
+        <>
+          <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {STATUS_ORDER.filter((s) => data && data.counts[s]).map((status) => (
+              <Card key={status}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">{status}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-semibold">{data!.counts[status] ?? 0}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatPaiseAsCurrency(data!.amounts[status] ?? 0)}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+            {data && Object.keys(data.counts).length === 0 ? (
+              <div className="col-span-full">
+                <EmptyState
+                  icon={LayoutDashboard}
+                  title="No activity yet"
+                  description="Create your first quotation to see it summarized here."
+                />
+              </div>
+            ) : null}
+          </div>
+
+          <h2 className="mb-3 text-lg font-medium">Recent documents</h2>
+          {!data || data.recent.length === 0 ? (
+            <EmptyState icon={FileText} title="Nothing here yet" />
+          ) : (
+            <div className="divide-y rounded-md border">
+              {data.recent.map((doc) => (
+                <Link
+                  key={`${doc.type}-${doc.id}`}
+                  href={doc.type === "QUOTATION" ? `/quotations/${doc.id}` : `/invoices/${doc.id}`}
+                  className="flex items-center justify-between gap-4 p-4 hover:bg-accent"
+                >
+                  <div>
+                    <p className="font-medium">{doc.number ?? "Draft"}</p>
+                    <p className="text-sm text-muted-foreground">{doc.customer.name}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-medium">{formatPaiseAsCurrency(doc.grandTotalPaise)}</span>
+                    <StatusBadge status={doc.status} />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

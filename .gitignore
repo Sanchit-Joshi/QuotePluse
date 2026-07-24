@@ -39,3 +39,20 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/src/generated/prisma
+
+# local file storage (PDFs, uploads) - not committed, cloud storage in prod
+/storage/
+/public/uploads/*
+!/public/uploads/.gitkeep
+
+# playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# env example is safe and should be tracked
+!.env.example
+

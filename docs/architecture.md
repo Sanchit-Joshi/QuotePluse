@@ -85,10 +85,9 @@ sequenceDiagram
     API-->>UI: 201 Created (quotation JSON)
     UI->>API: GET /api/quotations/:id/pdf
     API->>PdfSvc: generate(quotationId)
-    PdfSvc->>Repo: findByIdWithRelations(quotationId)
-    Repo->>DB: SELECT
-    DB-->>Repo: full quotation data
-    PdfSvc->>PdfSvc: render HTML template + Playwright print-to-PDF
+    PdfSvc->>PdfSvc: Playwright page.goto(APP_URL + /quotations/:id/preview)
+    Note over PdfSvc: same server, same route the user already<br/>previewed in-browser — see ADR-007
+    PdfSvc->>PdfSvc: page.pdf() (print media, A4, footer page numbers)
     PdfSvc-->>API: PDF buffer + log entry (LOG)
     API-->>UI: application/pdf stream
     UI-->>User: Preview / Download / Print
