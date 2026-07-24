@@ -112,11 +112,19 @@ export const documentPdfStyles = `
     margin-top: 10px;
   }
 
-  .doc-pdf .notes-terms { font-size: 9.5pt; margin-top: 10px; }
-  .doc-pdf .notes-terms h4 { font-size: 9.5pt; text-transform: uppercase; margin: 6px 0 2px; }
+  .doc-pdf .closing-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-top: 10px;
+  }
+  .doc-pdf .notes-terms { font-size: 9pt; flex: 1.4; }
+  .doc-pdf .notes-terms h4 { font-size: 9pt; text-transform: uppercase; margin: 6px 0 2px; }
   .doc-pdf .notes-terms p { white-space: pre-wrap; margin: 0; }
 
-  .doc-pdf .signature-block { text-align: right; margin-top: 24px; }
+  .doc-pdf .signature-block { text-align: right; flex: 1; }
+  .doc-pdf .signature-for { font-size: 10pt; font-weight: 700; margin-bottom: 4px; }
   .doc-pdf .signature-img { height: 46px; object-fit: contain; }
   .doc-pdf .signature-line { border-top: 1px solid #000; display: inline-block; padding-top: 4px; font-size: 10pt; font-weight: 700; margin-top: 30px; }
 

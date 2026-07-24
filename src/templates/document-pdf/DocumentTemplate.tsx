@@ -146,7 +146,7 @@ export function DocumentTemplate({ data }: { data: DocumentPdfData }) {
 
       <p className="amount-words">Amount in words: {data.amountInWords}</p>
 
-      {data.notes || data.terms ? (
+      <div className="closing-row">
         <div className="notes-terms">
           {data.notes ? (
             <>
@@ -161,14 +161,15 @@ export function DocumentTemplate({ data }: { data: DocumentPdfData }) {
             </>
           ) : null}
         </div>
-      ) : null}
 
-      <div className="signature-block">
-        {data.company.signatureUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img className="signature-img" src={data.company.signatureUrl} alt="Authorized signatory" />
-        ) : null}
-        <div className="signature-line">{data.company.signatoryName ?? "Authorized Signatory"}</div>
+        <div className="signature-block">
+          <div className="signature-for">For - {data.company.name}</div>
+          {data.company.signatureUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img className="signature-img" src={data.company.signatureUrl} alt="Authorized signatory" />
+          ) : null}
+          <div className="signature-line">{data.company.signatoryName ?? "Authorized Signatory"}</div>
+        </div>
       </div>
     </div>
   );
