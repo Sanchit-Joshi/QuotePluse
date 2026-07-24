@@ -11,6 +11,7 @@ import { gstRateSchema, paiseSchema, percentSchema } from "./common.schema";
 export const lineItemInputSchema = z.object({
   itemId: z.string().cuid().optional(),
   description: z.string().trim().min(1, "Description is required").max(500),
+  hsnSac: z.string().trim().max(20).optional(),
   quantity: z.number().positive("Quantity must be greater than zero"),
   unitPricePaise: paiseSchema,
   discountPct: percentSchema.default(0),

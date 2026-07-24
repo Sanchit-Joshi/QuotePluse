@@ -48,7 +48,12 @@ export interface DocumentPdfData {
     gstin?: string;
     phone?: string;
     email?: string;
+    /** Vendor/reference code this customer assigned to us (ADR-009), e.g. "VENDOR CODE-RAJE5945734". */
+    referenceCode?: string;
   };
+
+  /** Shown once in the header only when every line item shares the same HSN/SAC (matches the client's real invoices). */
+  uniformHsnSac?: string;
 
   lineItems: DocumentPdfLineItem[];
 
@@ -58,6 +63,10 @@ export interface DocumentPdfData {
   cgst: string;
   sgst: string;
   igst: string;
+  /** Effective rate labels, e.g. "9" for a 9% CGST line — derived from the actual computed amounts so mixed-rate documents still show a sensible blended percentage. */
+  cgstRateLabel: string;
+  sgstRateLabel: string;
+  igstRateLabel: string;
   rounding: string;
   grandTotal: string;
   amountInWords: string;

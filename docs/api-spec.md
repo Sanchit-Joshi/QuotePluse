@@ -14,7 +14,7 @@ Base path: `/api`. All request/response bodies are JSON unless noted. All mutati
 | PATCH | `/api/customers/:id` | `Partial<CustomerInput>` | `200 Customer` / `404` / `422` |
 | DELETE | `/api/customers/:id` | — | `204` (soft delete) / `409` if referenced-and-policy-blocks (not blocked in MVP — archive always allowed) |
 
-`CustomerInput`: `{ name: string(1-200), gstin?: string(15, GSTIN pattern), billingAddress: string, shippingAddress?: string, state: string, phone?: string, email?: string(email), notes?: string }`
+`CustomerInput`: `{ name: string(1-200), gstin?: string(15, GSTIN pattern), billingAddress: string, shippingAddress?: string, state: string, phone?: string, email?: string(email), referenceCode?: string(<=50, this customer's vendor/reference code for us, ADR-009), notes?: string }`
 
 ## Items
 | Method | Path | Body | Response |
@@ -42,7 +42,7 @@ Base path: `/api`. All request/response bodies are JSON unless noted. All mutati
 | GET | `/api/quotations/:id/versions` | — | `200 QuotationVersion[]` |
 
 `QuotationInput`: `{ customerId: string, issueDate: date, validUntil?: date, lineItems: LineItemInput[], documentDiscountPct?: number, notes?: string, terms?: string }`
-`LineItemInput`: `{ itemId?: string, description: string, quantity: number(>0), unitPricePaise: int(>=0), discountPct?: number(0-100), gstRate: number(0-28) }`
+`LineItemInput`: `{ itemId?: string, description: string, hsnSac?: string, quantity: number(>0), unitPricePaise: int(>=0), discountPct?: number(0-100), gstRate: number(0-28) }`
 
 ## Invoices
 Mirrors Quotations with these differences:

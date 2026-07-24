@@ -36,6 +36,7 @@ function toLineItemCreateRows(
   return lineItems.map((computed, i) => ({
     itemId: original[i].itemId,
     description: original[i].description,
+    hsnSac: original[i].hsnSac,
     quantity: original[i].quantity,
     unitPricePaise: original[i].unitPricePaise,
     discountPct: original[i].discountPct,
@@ -120,6 +121,7 @@ export class InvoiceService {
       const lineItems = input.lineItems ?? existing.lineItems.map((li) => ({
         itemId: li.itemId ?? undefined,
         description: li.description,
+        hsnSac: li.hsnSac ?? undefined,
         quantity: Number(li.quantity),
         unitPricePaise: li.unitPricePaise,
         discountPct: Number(li.discountPct),
@@ -240,6 +242,7 @@ export class InvoiceService {
             create: source.lineItems.map((li, i) => ({
               itemId: li.itemId,
               description: li.description,
+              hsnSac: li.hsnSac,
               quantity: li.quantity,
               unitPricePaise: li.unitPricePaise,
               discountPct: li.discountPct,

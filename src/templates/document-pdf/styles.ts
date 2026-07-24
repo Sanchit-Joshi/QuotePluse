@@ -4,68 +4,125 @@
  * render identically whether the browser has the app's compiled stylesheet
  * loaded or not (Playwright's page.setContent has no access to it) — see
  * docs/architecture.md §PDF generation.
+ *
+ * Visually modeled on the client's real reference invoices (plain white
+ * background, black text, medium black borders throughout, Calibri,
+ * everything center-aligned) rather than the earlier dark-header-row
+ * placeholder design — see docs/decision-log.md ADR-009.
  */
 export const documentPdfStyles = `
   @page { size: A4; margin: 0; }
   .doc-pdf {
-    font-family: "Helvetica Neue", Arial, sans-serif;
-    color: #1a1a1a;
-    font-size: 10.5pt;
-    line-height: 1.45;
+    font-family: Calibri, Arial, "Helvetica Neue", sans-serif;
+    color: #000;
+    font-size: 11pt;
+    line-height: 1.35;
     width: 100%;
     box-sizing: border-box;
-    padding: 28px 36px;
+    padding: 10px 14px;
+    background: #fff;
   }
   .doc-pdf * { box-sizing: border-box; }
-  .doc-pdf .header {
+  .doc-pdf table { border-collapse: collapse; width: 100%; }
+  .doc-pdf .box { border: 2px solid #000; }
+
+  .doc-pdf .company-block {
+    border: 2px solid #000;
+    min-height: 90px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 8px;
+  }
+  .doc-pdf .company-block .logo { max-height: 70px; max-width: 100%; object-fit: contain; }
+  .doc-pdf .company-name { font-size: 16pt; font-weight: 700; margin: 0; }
+  .doc-pdf .company-address { font-size: 9.5pt; margin-top: 2px; }
+
+  .doc-pdf .gstin-line {
+    text-align: center;
+    font-weight: 700;
+    font-size: 11pt;
+    padding: 4px 0;
+  }
+
+  .doc-pdf .doc-title {
+    text-align: center;
+    font-weight: 700;
+    font-size: 13pt;
+    letter-spacing: 1px;
+    padding: 4px 0 8px;
+  }
+
+  .doc-pdf .header-info {
+    display: flex;
+    border: 2px solid #000;
+    margin-bottom: 0;
+  }
+  .doc-pdf .header-info .col { flex: 1; padding: 6px 10px; font-size: 10.5pt; }
+  .doc-pdf .header-info .col + .col { border-left: 2px solid #000; }
+  .doc-pdf .header-info .line { padding: 1px 0; }
+  .doc-pdf .header-info .bold { font-weight: 700; }
+  .doc-pdf .header-info .customer-name { font-weight: 700; font-size: 11.5pt; }
+
+  .doc-pdf table.line-items { border: 2px solid #000; border-top: none; }
+  .doc-pdf table.line-items thead { display: table-header-group; }
+  .doc-pdf table.line-items tr { break-inside: avoid; }
+  .doc-pdf table.line-items th {
+    border: 1px solid #000;
+    font-weight: 700;
+    font-size: 10.5pt;
+    padding: 5px 6px;
+    text-align: center;
+  }
+  .doc-pdf table.line-items td {
+    border: 1px solid #000;
+    font-size: 10.5pt;
+    padding: 4px 6px;
+    text-align: center;
+    vertical-align: top;
+  }
+  .doc-pdf table.line-items td.desc { text-align: left; }
+  .doc-pdf table.line-items td.num { text-align: right; white-space: nowrap; }
+
+  .doc-pdf .bottom-section {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    border-bottom: 2px solid #1a1a1a;
-    padding-bottom: 14px;
-    margin-bottom: 16px;
+    gap: 16px;
+    margin-top: 10px;
   }
-  .doc-pdf .company-block { display: flex; gap: 12px; align-items: flex-start; }
-  .doc-pdf .logo { width: 56px; height: 56px; object-fit: contain; }
-  .doc-pdf .company-name { font-size: 15pt; font-weight: 700; margin: 0 0 2px; }
-  .doc-pdf .company-meta { font-size: 9pt; color: #444; max-width: 320px; }
-  .doc-pdf .doc-title-block { text-align: right; }
-  .doc-pdf .doc-title { font-size: 16pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin: 0; }
-  .doc-pdf .doc-number { font-size: 10.5pt; font-weight: 600; margin-top: 4px; }
-  .doc-pdf .doc-dates { font-size: 9pt; color: #444; margin-top: 4px; }
+  .doc-pdf .vendor-bank { font-size: 10pt; flex: 1.2; }
+  .doc-pdf .vendor-bank .line { padding: 1px 0; font-weight: 700; }
+
+  .doc-pdf table.totals-box { width: 260px; border: 2px solid #000; }
+  .doc-pdf table.totals-box td {
+    border: 1px solid #000;
+    padding: 4px 8px;
+    font-size: 10.5pt;
+    font-weight: 700;
+  }
+  .doc-pdf table.totals-box td.label { text-align: left; }
+  .doc-pdf table.totals-box td.value { text-align: right; white-space: nowrap; }
+  .doc-pdf table.totals-box tr.total-row td { font-size: 11.5pt; }
+
+  .doc-pdf .amount-words {
+    font-size: 10pt;
+    font-weight: 700;
+    margin-top: 10px;
+  }
+
+  .doc-pdf .notes-terms { font-size: 9.5pt; margin-top: 10px; }
+  .doc-pdf .notes-terms h4 { font-size: 9.5pt; text-transform: uppercase; margin: 6px 0 2px; }
+  .doc-pdf .notes-terms p { white-space: pre-wrap; margin: 0; }
+
+  .doc-pdf .signature-block { text-align: right; margin-top: 24px; }
+  .doc-pdf .signature-img { height: 46px; object-fit: contain; }
+  .doc-pdf .signature-line { border-top: 1px solid #000; display: inline-block; padding-top: 4px; font-size: 10pt; font-weight: 700; margin-top: 30px; }
+
   .doc-pdf .status-badge {
-    display: inline-block; margin-top: 6px; padding: 2px 10px; border-radius: 3px;
+    display: inline-block; margin-top: 4px; padding: 1px 8px;
     font-size: 8.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
-    background: #eef2f7; color: #1a1a1a; border: 1px solid #c7d0dc;
+    border: 1px solid #000;
   }
-  .doc-pdf .parties { display: flex; gap: 20px; margin-bottom: 16px; }
-  .doc-pdf .party-box { flex: 1; border: 1px solid #d8d8d8; border-radius: 4px; padding: 10px 12px; }
-  .doc-pdf .party-label { font-size: 8pt; text-transform: uppercase; letter-spacing: 0.5px; color: #666; font-weight: 700; margin-bottom: 4px; }
-  .doc-pdf .party-name { font-size: 11pt; font-weight: 700; margin-bottom: 2px; }
-  .doc-pdf .party-meta { font-size: 9pt; color: #333; }
-  .doc-pdf table.line-items { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
-  .doc-pdf table.line-items thead th {
-    background: #1a1a1a; color: #fff; font-size: 8.5pt; text-transform: uppercase;
-    padding: 6px 8px; text-align: left; letter-spacing: 0.3px;
-  }
-  .doc-pdf table.line-items thead th.num { text-align: right; }
-  .doc-pdf table.line-items tbody td { padding: 6px 8px; border-bottom: 1px solid #e6e6e6; font-size: 9.5pt; vertical-align: top; }
-  .doc-pdf table.line-items tbody td.num { text-align: right; white-space: nowrap; }
-  .doc-pdf table.line-items tbody tr:nth-child(even) { background: #fafafa; }
-  .doc-pdf .totals-wrap { display: flex; justify-content: flex-end; margin-bottom: 14px; }
-  .doc-pdf table.totals { width: 280px; border-collapse: collapse; }
-  .doc-pdf table.totals td { padding: 3px 8px; font-size: 9.5pt; }
-  .doc-pdf table.totals td.label { color: #444; }
-  .doc-pdf table.totals td.value { text-align: right; font-variant-numeric: tabular-nums; }
-  .doc-pdf table.totals tr.grand-total td { border-top: 2px solid #1a1a1a; font-weight: 700; font-size: 11pt; padding-top: 6px; }
-  .doc-pdf .amount-words { font-size: 9pt; font-style: italic; color: #333; margin-bottom: 16px; }
-  .doc-pdf .bottom-section { display: flex; justify-content: space-between; gap: 24px; margin-top: 24px; }
-  .doc-pdf .notes-terms { flex: 1.4; font-size: 8.5pt; color: #333; }
-  .doc-pdf .notes-terms h4 { font-size: 8.5pt; text-transform: uppercase; margin: 0 0 4px; color: #666; }
-  .doc-pdf .notes-terms p { white-space: pre-wrap; margin: 0 0 10px; }
-  .doc-pdf .signature-block { flex: 1; text-align: right; }
-  .doc-pdf .bank-details { font-size: 8.5pt; color: #333; margin-bottom: 24px; }
-  .doc-pdf .bank-details h4 { font-size: 8.5pt; text-transform: uppercase; margin: 0 0 4px; color: #666; }
-  .doc-pdf .signature-img { height: 50px; object-fit: contain; margin-bottom: 4px; }
-  .doc-pdf .signature-line { border-top: 1px solid #1a1a1a; padding-top: 4px; font-size: 9pt; }
 `;

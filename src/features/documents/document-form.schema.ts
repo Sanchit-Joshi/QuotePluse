@@ -13,6 +13,7 @@ import { z } from "zod";
 export const lineItemFormSchema = z.object({
   itemId: z.string().optional(),
   description: z.string().trim().min(1, "Description is required"),
+  hsnSac: z.string().optional(),
   quantity: z.number().positive("Must be greater than zero"),
   unitPricePaise: z.number().int().min(0),
   discountPct: z.number().min(0).max(100),

@@ -7,6 +7,28 @@ All deployment targets share the same three requirements:
 
 `APP_URL` **must** point at the URL the running server can reach itself at (see [ADR-007](decision-log.md)) — Playwright navigates to `${APP_URL}/quotations/:id/preview` to render PDFs. In every target below, this is `http://localhost:<port>` because Playwright always runs inside the same process/container as the server.
 
+## Vercel
+Vercel is a serverless platform: there's no `docker compose`-style always-on container, so two parts of the stack need a different approach than everywhere else in this document — see ADR-010 in [decision-log.md](decision-log.md) for the full reasoning.
+
+- **PDF generation**: `PdfService` automatically detects `process.env.VERCEL` and switches from the full `playwright` package (used everywhere else) to `playwright-core` + `@sparticuz/chromium` — a Chromium binary built to fit inside a serverless function. No configuration needed; this is already wired up in `src/services/pdf/pdf.service.ts`.
+- **Database**: Vercel doesn't provide Postgres itself. Provision one of: **Neon** (recommended — serverless Postgres, generous free tier, native Vercel integration), **Supabase**, or **Vercel Postgres** (also Neon-backed). Use the **pooled** connection string if offered (often a `-pooler` hostname) — serverless functions open many short-lived connections, and an unpooled connection string can exhaust a small Postgres instance's connection limit quickly.
+- **File uploads (logo/signature)**: `/api/uploads` currently writes to local disk (`public/uploads/`), which is **ephemeral on Vercel** — an uploaded file may not survive the next deployment or even the next cold start on a different instance. This works fine on every other target in this document (Docker, EC2, a Droplet) but is a known gap on Vercel specifically until cloud object storage (Vercel Blob / S3) is wired in — see [future-roadmap.md](future-roadmap.md). Until then, re-upload the logo/signature if they disappear after a deploy.
+
+### Steps
+1. **This agent cannot complete this step for you**: sign in to [vercel.com](https://vercel.com) and click "Add New Project" → import the GitHub repo (`https://github.com/Sanchit-Joshi/QuotePluse` once pushed). Signing in and authorizing the GitHub connection is an OAuth flow only you can complete.
+2. Vercel auto-detects Next.js; leave the build command as `npm run build` (this project's `postinstall` script already runs `prisma generate` automatically after `npm install`).
+3. Before the first deploy, add these Environment Variables in the Vercel project's Settings:
+   - `DATABASE_URL` — your Neon/Supabase connection string (pooled, with `?sslmode=require`).
+   - `APP_URL` — leave unset; `pdf.service.ts` falls back to `https://${VERCEL_URL}` automatically. Only set this explicitly if you attach a custom domain and want PDFs rendered against that domain instead of the auto-generated `*.vercel.app` one.
+4. Run the initial migration against the new database **once**, from your local machine, pointed at the production `DATABASE_URL`:
+   ```bash
+   DATABASE_URL="<your Neon connection string>" npx prisma migrate deploy
+   ```
+   (Vercel's build step does not run migrations automatically — there's no reliable single "this is the first deploy" hook. Run `prisma migrate deploy` locally against the target database after adding new migrations, before or right after each deploy that includes schema changes.)
+5. Deploy. First PDF request after a deploy will be slower (cold Chromium download/launch inside the function); subsequent requests reuse the warm instance.
+**Rollback:** Vercel keeps every deployment; use "Promote to Production" on a previous deployment from the dashboard.
+**Backup:** whatever your Postgres provider offers (Neon has point-in-time restore on paid tiers).
+
 ## Docker (any host)
 See [docker.md](docker.md) for the full reference.
 ```bash

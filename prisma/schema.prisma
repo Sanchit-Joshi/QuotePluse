@@ -181,6 +181,7 @@ model QuotationLineItem {
   itemId         String?
   item           Item?     @relation(fields: [itemId], references: [id])
   description    String
+  hsnSac         String?
   quantity       Decimal   @db.Decimal(12, 2)
   unitPricePaise Int
   discountPct    Decimal   @default(0) @db.Decimal(5, 2)
@@ -243,6 +244,7 @@ model InvoiceLineItem {
   itemId         String?
   item           Item?   @relation(fields: [itemId], references: [id])
   description    String
+  hsnSac         String?
   quantity       Decimal @db.Decimal(12, 2)
   unitPricePaise Int
   discountPct    Decimal @default(0) @db.Decimal(5, 2)

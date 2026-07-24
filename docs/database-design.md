@@ -60,6 +60,7 @@ erDiagram
         string state
         string phone
         string email
+        string referenceCode "vendor/reference code THIS customer assigned to us, ADR-009"
         string notes
         datetime deletedAt
         datetime createdAt
@@ -102,6 +103,7 @@ erDiagram
         string quotationId FK
         string itemId FK "nullable, ad-hoc lines allowed"
         string description
+        string hsnSac "captured per line, not just via Item, ADR-009"
         decimal quantity
         int unitPricePaise
         decimal discountPct
@@ -142,6 +144,7 @@ erDiagram
         string invoiceId FK
         string itemId FK
         string description
+        string hsnSac
         decimal quantity
         int unitPricePaise
         decimal discountPct

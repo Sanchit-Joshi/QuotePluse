@@ -7,7 +7,10 @@ FROM node:22-slim AS builder
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci --ignore-scripts && npm rebuild
+# --ignore-scripts on both: the new `postinstall` (prisma generate) can't
+# run yet since prisma/schema.prisma isn't copied in until the next step —
+# it runs explicitly below, after the full source is present.
+RUN npm ci --ignore-scripts && npm rebuild --ignore-scripts
 
 COPY . .
 RUN npx prisma generate

@@ -1,22 +1,72 @@
-import type { Browser } from "playwright";
 import { prisma } from "@/lib/prisma";
 import { NotFoundError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { auditService } from "@/services/audit/audit.service";
 import { AuditAction, AuditEntityType } from "@/generated/prisma/enums";
 
-let browserPromise: Promise<Browser> | null = null;
+/**
+ * Narrow structural interface covering only what PdfService actually calls.
+ * `playwright` (full, used locally/Docker) and `playwright-core` (used on
+ * Vercel, paired with @sparticuz/chromium's serverless binary) ship their
+ * own nominally-incompatible `Browser`/`Page` types even though both are
+ * structurally identical for this surface — this local type sidesteps that
+ * clash instead of forcing one runtime's types onto the other.
+ */
+interface PdfBrowser {
+  newPage(): Promise<PdfPage>;
+}
+interface PdfPage {
+  goto(url: string, opts: { waitUntil: "networkidle" }): Promise<{ status(): number } | null>;
+  pdf(opts: {
+    format: string;
+    printBackground: boolean;
+    margin: { top: string; bottom: string; left: string; right: string };
+    displayHeaderFooter: boolean;
+    headerTemplate: string;
+    footerTemplate: string;
+  }): Promise<Uint8Array>;
+  close(): Promise<void>;
+}
 
-async function getBrowser(): Promise<Browser> {
+let browserPromise: Promise<PdfBrowser> | null = null;
+
+/**
+ * Two Chromium sources, chosen at runtime:
+ * - Serverless (Vercel, or any environment with VERCEL set): `@sparticuz/chromium`
+ *   ships a Lambda/serverless-optimized Chromium binary and `playwright-core`
+ *   (no bundled browser), keeping the function bundle within Vercel's size
+ *   limits — the full `playwright` package's Chromium download does not fit.
+ * - Everything else (local dev, Docker — see docs/docker.md): the full
+ *   `playwright` package with its own downloaded Chromium, which is what
+ *   `docker compose up --build` was actually verified against (ADR-008).
+ *   `playwright-core` alone cannot find that browser (its own version
+ *   resolves a different Chromium revision than the one bundled inside
+ *   `playwright`), so the two paths are kept fully separate.
+ */
+async function getBrowser(): Promise<PdfBrowser> {
   if (!browserPromise) {
-    const { chromium } = await import("playwright");
-    browserPromise = chromium.launch({ headless: true });
+    browserPromise = process.env.VERCEL
+      ? (async () => {
+          const chromium = (await import("@sparticuz/chromium")).default;
+          const { chromium: playwrightCore } = await import("playwright-core");
+          return playwrightCore.launch({
+            args: chromium.args,
+            executablePath: await chromium.executablePath(),
+            headless: true,
+          }) as unknown as Promise<PdfBrowser>;
+        })()
+      : (async () => {
+          const { chromium } = await import("playwright");
+          return chromium.launch({ headless: true }) as unknown as Promise<PdfBrowser>;
+        })();
   }
   return browserPromise;
 }
 
 function appUrl(): string {
-  return process.env.APP_URL ?? "http://localhost:3000";
+  if (process.env.APP_URL) return process.env.APP_URL;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return "http://localhost:3000";
 }
 
 const FOOTER_TEMPLATE = `

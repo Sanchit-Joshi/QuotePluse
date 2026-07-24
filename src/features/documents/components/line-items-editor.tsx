@@ -22,6 +22,7 @@ export function LineItemsEditor({
     append({
       itemId: item.id,
       description: item.name,
+      hsnSac: item.hsnSac ?? "",
       quantity: 1,
       unitPricePaise: item.defaultUnitPricePaise,
       discountPct: 0,
@@ -30,7 +31,7 @@ export function LineItemsEditor({
   }
 
   function addBlank() {
-    append({ description: "", quantity: 1, unitPricePaise: 0, discountPct: 0, gstRate: 18 });
+    append({ description: "", hsnSac: "", quantity: 1, unitPricePaise: 0, discountPct: 0, gstRate: 18 });
   }
 
   return (
@@ -55,6 +56,7 @@ export function LineItemsEditor({
             <TableHeader>
               <TableRow>
                 <TableHead className="min-w-48">Description</TableHead>
+                <TableHead className="w-24">HSN/SAC</TableHead>
                 <TableHead className="w-24">Qty</TableHead>
                 <TableHead className="w-32">Unit price (₹)</TableHead>
                 <TableHead className="w-24">Disc %</TableHead>
@@ -67,6 +69,9 @@ export function LineItemsEditor({
                 <TableRow key={field.id}>
                   <TableCell>
                     <Input {...register(`lineItems.${index}.description`)} aria-label="Description" />
+                  </TableCell>
+                  <TableCell>
+                    <Input {...register(`lineItems.${index}.hsnSac`)} aria-label="HSN or SAC code" />
                   </TableCell>
                   <TableCell>
                     <Input

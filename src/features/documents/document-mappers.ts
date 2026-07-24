@@ -19,6 +19,7 @@ export function toDocumentInput(values: DocumentFormValues, mode: "quotation" | 
     lineItems: values.lineItems.map((li) => ({
       itemId: li.itemId,
       description: li.description,
+      hsnSac: li.hsnSac,
       quantity: li.quantity,
       unitPricePaise: li.unitPricePaise,
       discountPct: li.discountPct,
@@ -38,6 +39,7 @@ export function quotationToFormValues(quotation: QuotationDetail): DocumentFormV
     lineItems: quotation.lineItems.map((li) => ({
       itemId: li.itemId ?? undefined,
       description: li.description,
+      hsnSac: li.hsnSac ?? undefined,
       quantity: Number(li.quantity),
       unitPricePaise: li.unitPricePaise,
       discountPct: Number(li.discountPct),
@@ -57,6 +59,7 @@ export function invoiceToFormValues(invoice: InvoiceDetail): DocumentFormValues 
     lineItems: invoice.lineItems.map((li) => ({
       itemId: li.itemId ?? undefined,
       description: li.description,
+      hsnSac: li.hsnSac ?? undefined,
       quantity: Number(li.quantity),
       unitPricePaise: li.unitPricePaise,
       discountPct: Number(li.discountPct),
