@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,6 +16,7 @@ import { LineItemsEditor } from "@/features/documents/components/line-items-edit
 import { TotalsPreview } from "@/features/documents/components/totals-preview";
 import { documentFormSchema, type DocumentFormValues } from "@/features/documents/document-form.schema";
 import { toDocumentInput } from "@/features/documents/document-mappers";
+import { STANDARD_TERMS } from "@/features/documents/standard-terms";
 import { useCompanyProfile } from "@/features/settings/hooks/use-settings";
 import { useCustomer } from "@/features/customers/hooks/use-customers";
 import { ApiError } from "@/lib/api-client";
@@ -75,6 +77,21 @@ export function DocumentForm({
 
   function handleCustomerSelected(customer: Customer) {
     setCustomerState(customer.state);
+  }
+
+  const termsValue = form.watch("terms") ?? "";
+  const standardTermsIncluded = termsValue.includes(STANDARD_TERMS);
+
+  function toggleStandardTerms(checked: boolean) {
+    const current = form.getValues("terms") ?? "";
+    if (checked) {
+      if (current.includes(STANDARD_TERMS)) return;
+      const next = current.trim().length > 0 ? `${current.trim()}\n\n${STANDARD_TERMS}` : STANDARD_TERMS;
+      form.setValue("terms", next, { shouldDirty: true });
+    } else {
+      const next = current.replace(STANDARD_TERMS, "").trim();
+      form.setValue("terms", next, { shouldDirty: true });
+    }
   }
 
   async function saveDraft(values: DocumentFormValues): Promise<string> {
@@ -194,7 +211,16 @@ export function DocumentForm({
               <Textarea {...form.register("notes")} rows={3} />
             </div>
             <div>
-              <Label className="mb-2 block">Terms &amp; conditions</Label>
+              <div className="mb-2 flex items-center justify-between">
+                <Label>Terms &amp; conditions</Label>
+                <label className="flex items-center gap-2 text-sm font-normal text-muted-foreground">
+                  <Checkbox
+                    checked={standardTermsIncluded}
+                    onCheckedChange={(checked) => toggleStandardTerms(checked === true)}
+                  />
+                  Add standard T&amp;C
+                </label>
+              </div>
               <Textarea {...form.register("terms")} rows={3} />
             </div>
           </CardContent>
