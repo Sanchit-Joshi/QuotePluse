@@ -7,8 +7,8 @@ export async function GET() {
     return NextResponse.json({
       status: "ok",
       db: "ok",
-      // TEMP diagnostic (ADR-015) — confirms which commit is actually
-      // deployed. Remove once the production PDF issue is resolved.
+      // Confirms which commit is actually live — came in handy diagnosing
+      // a production-only deploy issue (ADR-015) and is cheap to keep.
       commit: process.env.VERCEL_GIT_COMMIT_SHA,
     });
   } catch {
