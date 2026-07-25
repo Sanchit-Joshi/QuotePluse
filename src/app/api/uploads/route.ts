@@ -1,9 +1,7 @@
-import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { NextResponse } from "next/server";
 import { withErrorHandling } from "@/lib/api-response";
 import { ValidationError } from "@/lib/errors";
+import { uploadPublicFile } from "@/services/storage/storage.service";
 
 const ALLOWED_TYPES: Record<string, string> = {
   "image/png": "png",
@@ -11,13 +9,11 @@ const ALLOWED_TYPES: Record<string, string> = {
   "image/webp": "webp",
 };
 const MAX_SIZE_BYTES = 2 * 1024 * 1024;
-const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads");
 
 /**
- * Accepts a single image file (logo/signature) and stores it under a
- * generated filename (never the client-supplied name, to prevent path
- * traversal — security.md §File uploads). Returns the public URL to store
- * on the Company record.
+ * Accepts a single image file (logo/signature) and stores it in Supabase
+ * Storage (see ADR-010) under a generated filename. Returns the public URL
+ * to store on the Company record.
  */
 export const POST = withErrorHandling(async (req) => {
   const formData = await req.formData();
@@ -34,10 +30,8 @@ export const POST = withErrorHandling(async (req) => {
     throw new ValidationError("File too large", { file: "Max 2MB" });
   }
 
-  await mkdir(UPLOAD_DIR, { recursive: true });
-  const filename = `${randomUUID()}.${ext}`;
   const buffer = Buffer.from(await file.arrayBuffer());
-  await writeFile(path.join(UPLOAD_DIR, filename), buffer);
+  const url = await uploadPublicFile(buffer, ext, file.type);
 
-  return NextResponse.json({ url: `/uploads/${filename}` }, { status: 201 });
+  return NextResponse.json({ url }, { status: 201 });
 });

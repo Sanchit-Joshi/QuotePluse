@@ -31,7 +31,7 @@ COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/package.json ./package.json
 COPY docker/entrypoint.sh ./docker/entrypoint.sh
 RUN chmod +x ./docker/entrypoint.sh \
-  && mkdir -p ./storage/pdfs ./storage/uploads ./public/uploads \
+  && mkdir -p ./storage/pdfs \
   && chown -R pwuser:pwuser /app
 
 USER pwuser

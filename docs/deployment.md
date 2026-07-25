@@ -2,7 +2,7 @@
 
 All deployment targets share the same three requirements:
 1. A reachable PostgreSQL 16 database.
-2. The environment variables in `.env.example` (`DATABASE_URL`, `APP_URL`, `PDF_STORAGE_DIR`, `UPLOAD_STORAGE_DIR`).
+2. The environment variables in `.env.example` (`DATABASE_URL`, `APP_URL`, `PDF_STORAGE_DIR`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SUPABASE_UPLOADS_BUCKET`).
 3. Enough memory/CPU to run headless Chromium for PDF generation (Playwright) alongside the Next.js server — budget at least 512MB RAM; 1GB+ recommended.
 
 `APP_URL` **must** point at the URL the running server can reach itself at (see [ADR-007](decision-log.md)) — Playwright navigates to `${APP_URL}/quotations/:id/preview` to render PDFs. In every target below, this is `http://localhost:<port>` because Playwright always runs inside the same process/container as the server.
@@ -12,7 +12,7 @@ Vercel is a serverless platform: there's no `docker compose`-style always-on con
 
 - **PDF generation**: `PdfService` automatically detects `process.env.VERCEL` and switches from the full `playwright` package (used everywhere else) to `playwright-core` + `@sparticuz/chromium` — a Chromium binary built to fit inside a serverless function. No configuration needed; this is already wired up in `src/services/pdf/pdf.service.ts`.
 - **Database**: Vercel doesn't provide Postgres itself. Provision one of: **Neon** (recommended — serverless Postgres, generous free tier, native Vercel integration), **Supabase**, or **Vercel Postgres** (also Neon-backed). Use the **pooled** connection string if offered (often a `-pooler` hostname) — serverless functions open many short-lived connections, and an unpooled connection string can exhaust a small Postgres instance's connection limit quickly.
-- **File uploads (logo/signature)**: `/api/uploads` currently writes to local disk (`public/uploads/`), which is **ephemeral on Vercel** — an uploaded file may not survive the next deployment or even the next cold start on a different instance. This works fine on every other target in this document (Docker, EC2, a Droplet) but is a known gap on Vercel specifically until cloud object storage (Vercel Blob / S3) is wired in — see [future-roadmap.md](future-roadmap.md). Until then, re-upload the logo/signature if they disappear after a deploy.
+- **File uploads (logo/signature)**: `/api/uploads` uploads to a Supabase Storage bucket (`SUPABASE_UPLOADS_BUCKET`, public-read) rather than local disk, so uploaded files persist across deploys and cold starts on Vercel (and everywhere else) — see [ADR-011](decision-log.md). Set `SUPABASE_URL` and `SUPABASE_SECRET_KEY` (the **secret** key, never the publishable/anon key) as Environment Variables in the Vercel project.
 
 ### Steps
 1. **This agent cannot complete this step for you**: sign in to [vercel.com](https://vercel.com) and click "Add New Project" → import the GitHub repo (`https://github.com/Sanchit-Joshi/QuotePluse` once pushed). Signing in and authorizing the GitHub connection is an OAuth flow only you can complete.
@@ -43,7 +43,7 @@ Migrations run automatically via `docker/entrypoint.sh` on container start.
 1. Create a new Railway project, add a **PostgreSQL** plugin (Railway provisions `DATABASE_URL` automatically — rename/alias it to match this project's expected `DATABASE_URL` env var if Railway's variable name differs).
 2. Add this repo as a service, build command `npm ci && npx prisma generate && npm run build`, start command `npx prisma migrate deploy && npm run start`.
 3. Set `APP_URL` to the Railway-assigned public domain (`https://<service>.up.railway.app`) — the app still calls itself at `http://localhost:$PORT` for the Playwright navigation internally, but confirm `PORT` is read (`next start -p $PORT`) if Railway injects a non-3000 port.
-4. Set `PDF_STORAGE_DIR`/`UPLOAD_STORAGE_DIR` to a path on a Railway volume if you want uploads to survive redeploys (Railway's default filesystem is ephemeral).
+4. Set `PDF_STORAGE_DIR` to a path on a Railway volume if you want generated PDFs cached across redeploys (Railway's default filesystem is ephemeral). Logo/signature uploads already persist regardless, via Supabase Storage — set `SUPABASE_URL`/`SUPABASE_SECRET_KEY`/`SUPABASE_UPLOADS_BUCKET`.
 5. Railway builds/deploys on every push to the connected branch by default — pin this to your release branch.
 **Rollback:** Railway keeps prior deployments; use "Redeploy" on the last-known-good deployment from the dashboard.
 
@@ -51,7 +51,7 @@ Migrations run automatically via `docker/entrypoint.sh` on container start.
 1. Create a **PostgreSQL** instance (Render manages backups automatically on paid tiers).
 2. Create a **Web Service** from this repo: build command `npm ci && npx prisma generate && npm run build`, start command `npx prisma migrate deploy && npm run start`.
 3. Add environment variables (`DATABASE_URL` from the Postgres instance's "Internal Database URL", `APP_URL=http://localhost:10000` if Render's default port is 10000 — confirm via `PORT` env var Render injects).
-4. Attach a **persistent disk** mounted at `/app/storage` and `/app/public/uploads` if upload persistence across deploys matters (Render's default disk is ephemeral on the free tier).
+4. Attach a **persistent disk** mounted at `/app/storage` if generated-PDF caching across deploys matters (Render's default disk is ephemeral on the free tier). Logo/signature uploads already persist regardless, via Supabase Storage — set `SUPABASE_URL`/`SUPABASE_SECRET_KEY`/`SUPABASE_UPLOADS_BUCKET`.
 **Rollback:** Render dashboard → Deploys → "Rollback" to a previous successful deploy.
 
 ## DigitalOcean (App Platform or Droplet)

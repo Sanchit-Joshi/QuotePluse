@@ -29,12 +29,13 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-quotation}:${POSTGRES_PASSWORD:-quotation_dev_password}@db:5432/${POSTGRES_DB:-quotation}?schema=public
       APP_URL: http://localhost:${APP_PORT:-3000}
       PDF_STORAGE_DIR: /app/storage/pdfs
-      UPLOAD_STORAGE_DIR: /app/storage/uploads
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SECRET_KEY: ${SUPABASE_SECRET_KEY}
+      SUPABASE_UPLOADS_BUCKET: ${SUPABASE_UPLOADS_BUCKET:-uploads}
     ports:
       - "${APP_PORT:-3000}:3000"
     volumes:
       - app_storage:/app/storage
-      - app_uploads:/app/public/uploads
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s
@@ -45,4 +46,3 @@ services:
 volumes:
   postgres_data:
   app_storage:
-  app_uploads:

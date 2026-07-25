@@ -10,6 +10,12 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
+    // Service-layer integration tests run several sequential Prisma
+    // transactions (createDraft -> finalize -> status change, etc.)
+    // against a real Postgres instance. Against a hosted DB reached over
+    // the public internet (see docs/decision-log.md ADR-012) that can
+    // comfortably exceed vitest's 5s default per-test timeout.
+    testTimeout: 20000,
     setupFiles: ["./src/tests/setup.ts"],
     coverage: {
       provider: "v8",
