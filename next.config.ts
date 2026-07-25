@@ -25,6 +25,22 @@ const nextConfig: NextConfig = {
     config.externals = [...(config.externals ?? []), "@sparticuz/chromium"];
     return config;
   },
+  // Marking a package external only stops webpack from bundling its JS —
+  // Vercel's file tracer independently decides which of the package's
+  // *actual files* get copied into each route's deployed function, and
+  // still misses @sparticuz/chromium's bin/ directory (the Chromium
+  // archive itself) by default. Force-include both packages' full
+  // directories for exactly the two routes that use them.
+  outputFileTracingIncludes: {
+    "/api/quotations/[id]/pdf": [
+      "./node_modules/playwright-core/**",
+      "./node_modules/@sparticuz/chromium/**",
+    ],
+    "/api/invoices/[id]/pdf": [
+      "./node_modules/playwright-core/**",
+      "./node_modules/@sparticuz/chromium/**",
+    ],
+  },
 };
 
 export default nextConfig;
