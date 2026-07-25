@@ -8,8 +8,9 @@
 
 ## FR-2 Product/Item Management
 - FR-2.1 Create, read, update, soft-delete catalog items.
-- FR-2.2 Fields: name, description, HSN/SAC code, unit (pcs/kg/hr/etc.), default unit price, default GST rate.
+- FR-2.2 Fields: name, description, HSN/SAC code, unit (pcs/kg/hr/etc.), default unit price, default GST rate, category (optional).
 - FR-2.3 Items are reusable across quotations/invoices as line-item templates; line items can still be freely edited per-document without altering the catalog item.
+- FR-2.4 Items belong to an optional Category. Categories are created inline from the product form (type a name; if no match exists, a "Create category" option appears) — there is no separate category management screen (ADR-013). The products list can be filtered by category.
 
 ## FR-3 Quotation Management
 - FR-3.1 Create a quotation: select/create customer, add line items (item, qty, unit price, discount %, GST rate), set quotation date, validity/expiry date, notes, terms.

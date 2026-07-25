@@ -48,6 +48,7 @@ enum AuditEntityType {
   INVOICE
   CUSTOMER
   ITEM
+  CATEGORY
   SETTINGS
 }
 
@@ -123,6 +124,17 @@ model Customer {
   @@map("customers")
 }
 
+model Category {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items Item[]
+
+  @@map("categories")
+}
+
 model Item {
   id                    String    @id @default(cuid())
   name                  String
@@ -131,14 +143,17 @@ model Item {
   unit                  String
   defaultUnitPricePaise Int
   defaultGstRate        Decimal   @db.Decimal(5, 2)
+  categoryId            String?
   deletedAt             DateTime?
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
+  category           Category?           @relation(fields: [categoryId], references: [id])
   quotationLineItems QuotationLineItem[]
   invoiceLineItems   InvoiceLineItem[]
 
   @@index([name])
+  @@index([categoryId])
   @@map("items")
 }
 

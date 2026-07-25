@@ -10,6 +10,7 @@ erDiagram
     Company ||--o{ NumberingSequence : "configures"
     Customer ||--o{ Quotation : "receives"
     Customer ||--o{ Invoice : "receives"
+    Category ||--o{ Item : "groups (optional)"
     Item ||--o{ QuotationLineItem : "templates"
     Item ||--o{ InvoiceLineItem : "templates"
     Quotation ||--o{ QuotationLineItem : "contains"
@@ -66,6 +67,12 @@ erDiagram
         datetime createdAt
         datetime updatedAt
     }
+    Category {
+        string id PK
+        string name "unique"
+        datetime createdAt
+        datetime updatedAt
+    }
     Item {
         string id PK
         string name
@@ -74,6 +81,7 @@ erDiagram
         string unit
         int defaultUnitPricePaise
         decimal defaultGstRate
+        string categoryId FK "nullable"
         datetime deletedAt
         datetime createdAt
         datetime updatedAt

@@ -8,6 +8,7 @@ export const itemInputSchema = z.object({
   unit: z.string().trim().min(1, "Unit is required").max(20),
   defaultUnitPricePaise: paiseSchema,
   defaultGstRate: gstRateSchema,
+  categoryId: z.string().trim().optional(),
 });
 
 export type ItemInput = z.infer<typeof itemInputSchema>;

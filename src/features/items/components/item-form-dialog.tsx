@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { itemInputSchema, type ItemInput } from "@/validators/item.schema";
 import { useCreateItem, useUpdateItem } from "@/features/items/hooks/use-items";
+import { CategoryCombobox } from "@/features/items/components/category-combobox";
 import type { Item } from "@/generated/prisma/client";
 import { ApiError } from "@/lib/api-client";
 
@@ -40,6 +41,7 @@ export function ItemFormDialog({
       unit: "",
       defaultUnitPricePaise: 0,
       defaultGstRate: 18,
+      categoryId: "",
     },
   });
 
@@ -52,6 +54,7 @@ export function ItemFormDialog({
         unit: item?.unit ?? "",
         defaultUnitPricePaise: item?.defaultUnitPricePaise ?? 0,
         defaultGstRate: item ? Number(item.defaultGstRate) : 18,
+        categoryId: item?.categoryId ?? "",
       });
     }
   }, [open, item, form]);
@@ -98,6 +101,19 @@ export function ItemFormDialog({
                   <FormLabel>Name</FormLabel>
                   <FormControl>
                     <Input {...field} autoFocus />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="categoryId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Category</FormLabel>
+                  <FormControl>
+                    <CategoryCombobox value={field.value} onChange={field.onChange} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

@@ -36,6 +36,7 @@ src/
   app/api/
     customers/route.ts, [id]/route.ts
     items/route.ts, [id]/route.ts
+    categories/route.ts
     quotations/route.ts, [id]/route.ts, [id]/pdf/route.ts, [id]/convert/route.ts
     invoices/route.ts, [id]/route.ts, [id]/pdf/route.ts
     settings/company/route.ts, settings/numbering/route.ts

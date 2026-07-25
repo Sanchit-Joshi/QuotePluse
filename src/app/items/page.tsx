@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { MoreHorizontal, Package, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/shared/page-header";
@@ -10,6 +11,7 @@ import { TableSkeleton } from "@/components/shared/table-skeleton";
 import { PaginationBar } from "@/components/shared/pagination-bar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
@@ -22,21 +24,27 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useArchiveItem, useItems } from "@/features/items/hooks/use-items";
+import { useArchiveItem, useItems, type ItemWithCategory } from "@/features/items/hooks/use-items";
 import { ItemFormDialog } from "@/features/items/components/item-form-dialog";
 import { formatPaiseAsCurrency } from "@/lib/money";
-import type { Item } from "@/generated/prisma/client";
+import { apiFetch } from "@/lib/api-client";
+import type { Category } from "@/generated/prisma/client";
 
 const PAGE_SIZE = 20;
 
 export default function ItemsPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [categoryId, setCategoryId] = useState<string | undefined>(undefined);
   const [formOpen, setFormOpen] = useState(false);
-  const [editing, setEditing] = useState<Item | undefined>(undefined);
-  const [archiving, setArchiving] = useState<Item | undefined>(undefined);
+  const [editing, setEditing] = useState<ItemWithCategory | undefined>(undefined);
+  const [archiving, setArchiving] = useState<ItemWithCategory | undefined>(undefined);
 
-  const { data, isLoading, isError, refetch } = useItems({ page, pageSize: PAGE_SIZE, search });
+  const { data, isLoading, isError, refetch } = useItems({ page, pageSize: PAGE_SIZE, search, categoryId });
+  const { data: categories } = useQuery({
+    queryKey: ["categories"],
+    queryFn: () => apiFetch<Category[]>("/api/categories"),
+  });
   const archiveMutation = useArchiveItem();
 
   return (
@@ -56,16 +64,37 @@ export default function ItemsPage() {
         }
       />
 
-      <Input
-        placeholder="Search by name or HSN/SAC..."
-        value={search}
-        onChange={(e) => {
-          setSearch(e.target.value);
-          setPage(1);
-        }}
-        className="mb-4 max-w-sm"
-        aria-label="Search products"
-      />
+      <div className="mb-4 flex gap-3">
+        <Input
+          placeholder="Search by name or HSN/SAC..."
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
+          className="max-w-sm"
+          aria-label="Search products"
+        />
+        <Select
+          value={categoryId ?? "all"}
+          onValueChange={(value) => {
+            setCategoryId(value === "all" ? undefined : (value as string));
+            setPage(1);
+          }}
+        >
+          <SelectTrigger aria-label="Filter by category" className="w-48">
+            <SelectValue placeholder="All categories" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All categories</SelectItem>
+            {categories?.map((category) => (
+              <SelectItem key={category.id} value={category.id}>
+                {category.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
       {isLoading ? (
         <TableSkeleton />
@@ -94,6 +123,7 @@ export default function ItemsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
+                  <TableHead>Category</TableHead>
                   <TableHead>Unit</TableHead>
                   <TableHead>HSN/SAC</TableHead>
                   <TableHead>Default price</TableHead>
@@ -105,6 +135,7 @@ export default function ItemsPage() {
                 {data.items.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">{item.name}</TableCell>
+                    <TableCell>{item.category?.name ?? "—"}</TableCell>
                     <TableCell>{item.unit}</TableCell>
                     <TableCell>{item.hsnSac ?? "—"}</TableCell>
                     <TableCell>{formatPaiseAsCurrency(item.defaultUnitPricePaise)}</TableCell>

@@ -11,8 +11,9 @@ export const GET = withErrorHandling(async (req) => {
     pageSize: url.searchParams.get("pageSize") ?? undefined,
   });
   const search = url.searchParams.get("search") ?? undefined;
+  const categoryId = url.searchParams.get("categoryId") ?? undefined;
 
-  const result = await itemService.list({ page, pageSize, search });
+  const result = await itemService.list({ page, pageSize, search, categoryId });
   return NextResponse.json(result);
 });
 

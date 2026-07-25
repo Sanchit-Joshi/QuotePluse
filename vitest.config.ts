@@ -16,6 +16,14 @@ export default defineConfig({
     // the public internet (see docs/decision-log.md ADR-012) that can
     // comfortably exceed vitest's 5s default per-test timeout.
     testTimeout: 20000,
+    // Each test file gets its own PrismaClient (module state isn't shared
+    // across vitest's worker threads/processes), so running files in
+    // parallel opens many simultaneous connections to the hosted Supabase
+    // pooler — enough to exceed its connection limit and cause sporadic
+    // "Unable to start a transaction" failures under full-suite runs (see
+    // docs/decision-log.md ADR-012). Running files sequentially trades
+    // suite wall-clock time for reliability, which matters more here.
+    fileParallelism: false,
     setupFiles: ["./src/tests/setup.ts"],
     coverage: {
       provider: "v8",

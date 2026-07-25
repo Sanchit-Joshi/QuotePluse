@@ -19,13 +19,21 @@ Base path: `/api`. All request/response bodies are JSON unless noted. All mutati
 ## Items
 | Method | Path | Body | Response |
 |---|---|---|---|
-| GET | `/api/items?search=&page=&pageSize=` | — | `200 { items: Item[], total, page, pageSize }` |
-| GET | `/api/items/:id` | — | `200 Item` / `404` |
+| GET | `/api/items?search=&categoryId=&page=&pageSize=` | — | `200 { items: (Item & {category})[], total, page, pageSize }` |
+| GET | `/api/items/:id` | — | `200 Item & {category}` / `404` |
 | POST | `/api/items` | `ItemInput` | `201 Item` / `422` |
 | PATCH | `/api/items/:id` | `Partial<ItemInput>` | `200 Item` |
 | DELETE | `/api/items/:id` | — | `204` (soft delete) |
 
-`ItemInput`: `{ name: string, description?: string, hsnSac?: string, unit: string, defaultUnitPricePaise: int(>=0), defaultGstRate: number(0-28) }`
+`ItemInput`: `{ name: string, description?: string, hsnSac?: string, unit: string, defaultUnitPricePaise: int(>=0), defaultGstRate: number(0-28), categoryId?: string }`
+
+## Categories
+| Method | Path | Body | Response |
+|---|---|---|---|
+| GET | `/api/categories` | — | `200 Category[]` (all, alphabetical — no pagination, expected to stay small) |
+| POST | `/api/categories` | `{ name: string }` | `201 Category` / `409` if the name already exists |
+
+No PATCH/DELETE — categories are only created inline from the product form (ADR-013); renaming/removing isn't needed yet and isn't built.
 
 ## Quotations
 | Method | Path | Body | Response |

@@ -6,7 +6,9 @@ import type { ItemInput, ItemUpdateInput } from "@/validators/item.schema";
 
 const KEY = "items";
 
-export function useItems(params: { page: number; pageSize: number; search?: string }) {
+export type ItemWithCategory = Item & { category: { id: string; name: string } | null };
+
+export function useItems(params: { page: number; pageSize: number; search?: string; categoryId?: string }) {
   return useQuery({
     queryKey: [KEY, params],
     queryFn: () => {
@@ -14,8 +16,9 @@ export function useItems(params: { page: number; pageSize: number; search?: stri
         page: String(params.page),
         pageSize: String(params.pageSize),
         ...(params.search ? { search: params.search } : {}),
+        ...(params.categoryId ? { categoryId: params.categoryId } : {}),
       });
-      return apiFetch<PageResult<Item>>(`/api/items?${qs}`);
+      return apiFetch<PageResult<ItemWithCategory>>(`/api/items?${qs}`);
     },
     placeholderData: (prev) => prev,
   });
