@@ -15,6 +15,16 @@ const nextConfig: NextConfig = {
   // See src/services/pdf/pdf.service.ts for why both Playwright variants
   // are present (local/Docker vs. Vercel serverless).
   serverExternalPackages: ["playwright", "playwright-core", "@sparticuz/chromium"],
+  // `serverExternalPackages` alone isn't enough for @sparticuz/chromium: it
+  // resolves its own bundled binary via a *relative path from its own file*
+  // at runtime, which breaks the moment webpack touches it at all (their
+  // docs: "must be marked as external ... relies on relative path
+  // resolution"). Push it onto webpack's own `externals` list directly so
+  // it's `require()`d from node_modules as-is, never relocated/rewritten.
+  webpack: (config) => {
+    config.externals = [...(config.externals ?? []), "@sparticuz/chromium"];
+    return config;
+  },
 };
 
 export default nextConfig;
