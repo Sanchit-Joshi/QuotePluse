@@ -9,7 +9,13 @@ import { CompanyRepository } from "@/repositories/company.repository";
 import { calculateTotals } from "@/services/totals/totals-calculator";
 import { numberingService } from "@/services/numbering/numbering.service";
 import { auditService } from "@/services/audit/audit.service";
-import { AuditAction, AuditEntityType, DocumentType, InvoiceStatus } from "@/generated/prisma/enums";
+import {
+  AuditAction,
+  AuditEntityType,
+  DocumentType,
+  InvoiceStatus,
+  PurchaseOrderStatus,
+} from "@/generated/prisma/enums";
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import type { DocumentInput, DocumentUpdateInput } from "@/validators/document.schema";
 
@@ -303,6 +309,74 @@ export class InvoiceService {
       });
 
       return invoice;
+    });
+  }
+
+  /**
+   * Creates a DRAFT purchase order to a vendor from this invoice's line
+   * items — same dealer-restocking rationale as
+   * QuotationService.convertToPurchaseOrder. Does not change the invoice's
+   * own status (an invoice stays valid/payable regardless of whether stock
+   * is separately reordered from a vendor to fulfill it) — only guarded
+   * against converting the same invoice to a PO twice. Pricing is zeroed
+   * on the new PO's line items for the same reason as the quotation path:
+   * what we billed the customer has no relationship to vendor cost.
+   */
+  async convertToPurchaseOrder(id: string, vendorId: string): Promise<{ purchaseOrderId: string }> {
+    return prisma.$transaction(async (tx) => {
+      const invoice = await tx.invoice.findUnique({ where: { id }, include: { lineItems: true } });
+      if (!invoice) throw new NotFoundError("Invoice", id);
+      if (invoice.status === InvoiceStatus.CANCELLED) {
+        throw new ConflictError("Cannot convert a cancelled invoice to a purchase order");
+      }
+      if (invoice.convertedToPurchaseOrderId) {
+        throw new ConflictError("This invoice has already been converted to a purchase order");
+      }
+      const vendor = await tx.vendor.findFirst({ where: { id: vendorId, deletedAt: null } });
+      if (!vendor) throw new NotFoundError("Vendor", vendorId);
+
+      const po = await tx.purchaseOrder.create({
+        data: {
+          vendorId,
+          status: PurchaseOrderStatus.DRAFT,
+          issueDate: new Date(),
+          notes: invoice.notes,
+          terms: invoice.terms,
+          lineItems: {
+            create: invoice.lineItems.map((li, i) => ({
+              itemId: li.itemId,
+              description: li.description,
+              hsnSac: li.hsnSac,
+              quantity: li.quantity,
+              unitPricePaise: 0,
+              discountPct: 0,
+              gstRate: li.gstRate,
+              lineTotalPaise: 0,
+              sortOrder: i,
+            })),
+          },
+        },
+      });
+
+      await tx.invoice.update({
+        where: { id },
+        data: { convertedToPurchaseOrderId: po.id },
+      });
+
+      await auditService.record(tx, {
+        entityType: AuditEntityType.INVOICE,
+        entityId: id,
+        action: AuditAction.UPDATE,
+        metadata: { convertedToPurchaseOrderId: po.id },
+      });
+      await auditService.record(tx, {
+        entityType: AuditEntityType.PURCHASE_ORDER,
+        entityId: po.id,
+        action: AuditAction.CREATE,
+        metadata: { convertedFromInvoiceId: id },
+      });
+
+      return { purchaseOrderId: po.id };
     });
   }
 }

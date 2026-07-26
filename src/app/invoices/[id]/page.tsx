@@ -32,7 +32,9 @@ import {
 } from "@/components/ui/dialog";
 import { DocumentForm } from "@/features/documents/components/document-form";
 import { invoiceToFormValues } from "@/features/documents/document-mappers";
+import { ConvertToPurchaseOrderDialog } from "@/features/purchase-orders/components/convert-to-po-dialog";
 import {
+  useConvertInvoiceToPurchaseOrder,
   useDuplicateInvoice,
   useFinalizeInvoice,
   useInvoice,
@@ -48,15 +50,18 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const duplicateMutation = useDuplicateInvoice();
   const statusMutation = useUpdateInvoiceStatus();
   const finalizeMutation = useFinalizeInvoice();
+  const convertToPoMutation = useConvertInvoiceToPurchaseOrder();
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [payDialogOpen, setPayDialogOpen] = useState(false);
   const [paidDate, setPaidDate] = useState(new Date().toISOString().slice(0, 10));
+  const [convertToPoOpen, setConvertToPoOpen] = useState(false);
 
   if (isLoading) return <Skeleton className="h-96" />;
   if (isError || !invoice) return <ErrorState onRetry={() => refetch()} />;
 
   const canMarkPaid = invoice.status === "PENDING";
   const canCancel = invoice.status === "PENDING" || invoice.status === "DRAFT";
+  const canConvertToPo = invoice.status !== "CANCELLED" && !invoice.convertedToPurchaseOrderId;
 
   return (
     <div>
@@ -89,6 +94,11 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
               <Copy className="size-4" /> Duplicate
             </Button>
             {canMarkPaid ? <Button onClick={() => setPayDialogOpen(true)}>Mark paid</Button> : null}
+            {canConvertToPo ? (
+              <Button variant="outline" onClick={() => setConvertToPoOpen(true)}>
+                Convert to PO
+              </Button>
+            ) : null}
             {canCancel ? (
               <Button variant="destructive" onClick={() => setConfirmCancel(true)}>
                 Cancel
@@ -137,6 +147,18 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConvertToPurchaseOrderDialog
+        open={convertToPoOpen}
+        onOpenChange={setConvertToPoOpen}
+        pending={convertToPoMutation.isPending}
+        onConfirm={async (vendorId) => {
+          const result = await convertToPoMutation.mutateAsync({ id, vendorId });
+          toast.success("Purchase order created");
+          setConvertToPoOpen(false);
+          router.push(`/purchase-orders/${result.purchaseOrder.id}`);
+        }}
+      />
 
       <AlertDialog open={confirmCancel} onOpenChange={setConfirmCancel}>
         <AlertDialogContent>

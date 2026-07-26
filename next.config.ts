@@ -40,6 +40,10 @@ const nextConfig: NextConfig = {
       "./node_modules/playwright-core/**",
       "./node_modules/@sparticuz/chromium/**",
     ],
+    "/api/purchase-orders/[id]/pdf": [
+      "./node_modules/playwright-core/**",
+      "./node_modules/@sparticuz/chromium/**",
+    ],
   },
 };
 

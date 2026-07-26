@@ -105,8 +105,12 @@ export class PdfService {
     return this.generate("INVOICE", id, `/invoices/${id}/preview`);
   }
 
+  async generatePurchaseOrderPdf(id: string): Promise<Buffer> {
+    return this.generate("PURCHASE_ORDER", id, `/purchase-orders/${id}/preview`);
+  }
+
   private async generate(
-    documentType: "QUOTATION" | "INVOICE",
+    documentType: "QUOTATION" | "INVOICE" | "PURCHASE_ORDER",
     id: string,
     path: string,
   ): Promise<Buffer> {
@@ -115,7 +119,7 @@ export class PdfService {
       const buffer = await this.renderPdf(path);
       logger.pdf({ documentType, id, durationMs: Date.now() - start, success: true });
       await auditService.record(prisma, {
-        entityType: documentType === "QUOTATION" ? AuditEntityType.QUOTATION : AuditEntityType.INVOICE,
+        entityType: AuditEntityType[documentType],
         entityId: id,
         action: AuditAction.PDF_GENERATE,
       });

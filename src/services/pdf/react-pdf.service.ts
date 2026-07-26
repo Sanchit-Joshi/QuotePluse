@@ -4,7 +4,9 @@ import { logger } from "@/lib/logger";
 import { auditService } from "@/services/audit/audit.service";
 import { AuditAction, AuditEntityType } from "@/generated/prisma/enums";
 import { mapQuotationToPdfData, mapInvoiceToPdfData } from "@/services/pdf/document-pdf-mapper";
+import { mapPurchaseOrderToPdfData } from "@/services/pdf/purchase-order-pdf-mapper";
 import { DocumentPdfDocument } from "@/templates/document-pdf-react/DocumentPdfDocument";
+import { PurchaseOrderPdfDocument } from "@/templates/purchase-order-pdf-react/PurchaseOrderPdfDocument";
 
 /**
  * Serverless-friendly PDF engine that renders DocumentPdfData directly to a
@@ -24,6 +26,31 @@ export class ReactPdfService {
 
   async generateInvoicePdf(id: string): Promise<Buffer> {
     return this.generate("INVOICE", id, mapInvoiceToPdfData);
+  }
+
+  /**
+   * Separate from `generate()` below: PurchaseOrderPdfData/PurchaseOrderPdfDocument
+   * are a distinct shape from DocumentPdfData/DocumentPdfDocument (see
+   * templates/purchase-order-pdf/types.ts), so it doesn't fit that method's
+   * mapper-type union without genericizing it for a single caller — not
+   * worth the abstraction for three total document types.
+   */
+  async generatePurchaseOrderPdf(id: string): Promise<Buffer> {
+    const start = Date.now();
+    try {
+      const { data } = await mapPurchaseOrderToPdfData(id);
+      const buffer = await renderToBuffer(PurchaseOrderPdfDocument({ data }));
+      logger.pdf({ documentType: "PURCHASE_ORDER", id, durationMs: Date.now() - start, success: true });
+      await auditService.record(prisma, {
+        entityType: AuditEntityType.PURCHASE_ORDER,
+        entityId: id,
+        action: AuditAction.PDF_GENERATE,
+      });
+      return buffer;
+    } catch (err) {
+      logger.pdf({ documentType: "PURCHASE_ORDER", id, durationMs: Date.now() - start, success: false });
+      throw err;
+    }
   }
 
   private async generate(

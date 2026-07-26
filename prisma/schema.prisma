@@ -12,6 +12,7 @@ datasource db {
 enum DocumentType {
   QUOTATION
   INVOICE
+  PURCHASE_ORDER
 }
 
 enum NumberingResetRule {
@@ -35,6 +36,18 @@ enum InvoiceStatus {
   CANCELLED
 }
 
+/**
+ * Simpler than Quotation/Invoice's state machines: a PO only ever goes
+ * to one counterparty (the vendor) and isn't itself paid/received in this
+ * app (that's tracked outside the system) — DRAFT -> SENT (finalize,
+ * allocates number) -> CANCELLED covers the actual documented lifecycle.
+ */
+enum PurchaseOrderStatus {
+  DRAFT
+  SENT
+  CANCELLED
+}
+
 enum AuditAction {
   CREATE
   UPDATE
@@ -46,7 +59,9 @@ enum AuditAction {
 enum AuditEntityType {
   QUOTATION
   INVOICE
+  PURCHASE_ORDER
   CUSTOMER
+  VENDOR
   ITEM
   CATEGORY
   SETTINGS
@@ -124,6 +139,35 @@ model Customer {
   @@map("customers")
 }
 
+/**
+ * The counterparty on a Purchase Order — a supplier we buy stock from,
+ * as opposed to Customer (who we sell/bill to). Kept as a distinct model
+ * rather than reusing Customer: a dealer's own suppliers (e.g. the
+ * principal manufacturer they resell for) are a different real-world
+ * relationship, and conflating the two would make Customer's
+ * `referenceCode` ("this customer's code for us") nonsensical here.
+ * Mirrors Customer's shape/conventions (soft delete, free-text address).
+ */
+model Vendor {
+  id        String    @id @default(cuid())
+  name      String
+  gstin     String?
+  address   String
+  state     String
+  phone     String?
+  email     String?
+  notes     String?
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  purchaseOrders PurchaseOrder[]
+
+  @@index([name])
+  @@index([gstin])
+  @@map("vendors")
+}
+
 model Category {
   id        String   @id @default(cuid())
   name      String   @unique
@@ -148,9 +192,10 @@ model Item {
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
-  category           Category?           @relation(fields: [categoryId], references: [id])
-  quotationLineItems QuotationLineItem[]
-  invoiceLineItems   InvoiceLineItem[]
+  category               Category?               @relation(fields: [categoryId], references: [id])
+  quotationLineItems     QuotationLineItem[]
+  invoiceLineItems       InvoiceLineItem[]
+  purchaseOrderLineItems PurchaseOrderLineItem[]
 
   @@index([name])
   @@index([categoryId])
@@ -158,28 +203,35 @@ model Item {
 }
 
 model Quotation {
-  id                   String          @id @default(cuid())
-  number               String?         @unique
-  customerId           String
-  customer             Customer        @relation(fields: [customerId], references: [id])
-  status               QuotationStatus @default(DRAFT)
-  issueDate            DateTime
-  validUntil           DateTime?
-  subtotalPaise        Int             @default(0)
-  discountPaise        Int             @default(0)
-  documentDiscountPct  Decimal         @default(0) @db.Decimal(5, 2)
-  cgstPaise            Int             @default(0)
-  sgstPaise            Int             @default(0)
-  igstPaise            Int             @default(0)
-  roundingPaise        Int             @default(0)
-  grandTotalPaise      Int             @default(0)
-  notes                String?
-  terms                String?
-  convertedToInvoiceId String?         @unique
-  convertedToInvoice   Invoice?        @relation("QuotationToInvoice", fields: [convertedToInvoiceId], references: [id])
-  version              Int             @default(1)
-  createdAt            DateTime        @default(now())
-  updatedAt            DateTime        @updatedAt
+  id                         String          @id @default(cuid())
+  number                     String?         @unique
+  customerId                 String
+  customer                   Customer        @relation(fields: [customerId], references: [id])
+  status                     QuotationStatus @default(DRAFT)
+  issueDate                  DateTime
+  validUntil                 DateTime?
+  subtotalPaise              Int             @default(0)
+  discountPaise              Int             @default(0)
+  documentDiscountPct        Decimal         @default(0) @db.Decimal(5, 2)
+  cgstPaise                  Int             @default(0)
+  sgstPaise                  Int             @default(0)
+  igstPaise                  Int             @default(0)
+  roundingPaise              Int             @default(0)
+  grandTotalPaise            Int             @default(0)
+  notes                      String?
+  terms                      String?
+  convertedToInvoiceId       String?         @unique
+  convertedToInvoice         Invoice?        @relation("QuotationToInvoice", fields: [convertedToInvoiceId], references: [id])
+  /// Set when this quotation was converted into a purchase order to a
+  /// vendor instead of an invoice (e.g. a dealer placing a stock order to
+  /// fulfill a customer quote) — mirrors convertedToInvoiceId's semantics;
+  /// a quotation converts to exactly one target, same CONVERTED terminal
+  /// state either way. See PurchaseOrderService.createFromQuotation.
+  convertedToPurchaseOrderId String?         @unique
+  convertedToPurchaseOrder   PurchaseOrder?  @relation("QuotationToPurchaseOrder", fields: [convertedToPurchaseOrderId], references: [id])
+  version                    Int             @default(1)
+  createdAt                  DateTime        @default(now())
+  updatedAt                  DateTime        @updatedAt
 
   lineItems QuotationLineItem[]
   versions  QuotationVersion[]
@@ -221,28 +273,33 @@ model QuotationVersion {
 }
 
 model Invoice {
-  id                     String        @id @default(cuid())
-  number                 String?       @unique
-  customerId             String
-  customer               Customer      @relation(fields: [customerId], references: [id])
-  convertedFromQuotation Quotation?    @relation("QuotationToInvoice")
-  status                 InvoiceStatus @default(DRAFT)
-  issueDate              DateTime
-  dueDate                DateTime?
-  paidDate               DateTime?
-  subtotalPaise          Int           @default(0)
-  discountPaise          Int           @default(0)
-  documentDiscountPct    Decimal       @default(0) @db.Decimal(5, 2)
-  cgstPaise              Int           @default(0)
-  sgstPaise              Int           @default(0)
-  igstPaise              Int           @default(0)
-  roundingPaise          Int           @default(0)
-  grandTotalPaise        Int           @default(0)
-  notes                  String?
-  terms                  String?
-  version                Int           @default(1)
-  createdAt              DateTime      @default(now())
-  updatedAt              DateTime      @updatedAt
+  id                         String         @id @default(cuid())
+  number                     String?        @unique
+  customerId                 String
+  customer                   Customer       @relation(fields: [customerId], references: [id])
+  convertedFromQuotation     Quotation?     @relation("QuotationToInvoice")
+  status                     InvoiceStatus  @default(DRAFT)
+  issueDate                  DateTime
+  dueDate                    DateTime?
+  paidDate                   DateTime?
+  subtotalPaise              Int            @default(0)
+  discountPaise              Int            @default(0)
+  documentDiscountPct        Decimal        @default(0) @db.Decimal(5, 2)
+  cgstPaise                  Int            @default(0)
+  sgstPaise                  Int            @default(0)
+  igstPaise                  Int            @default(0)
+  roundingPaise              Int            @default(0)
+  grandTotalPaise            Int            @default(0)
+  notes                      String?
+  terms                      String?
+  /// Set when this invoice was converted into a purchase order to a vendor
+  /// (see Quotation.convertedToPurchaseOrderId for the same pattern) —
+  /// invoices have no other conversion target, so this is a simple 1:1.
+  convertedToPurchaseOrderId String?        @unique
+  convertedToPurchaseOrder   PurchaseOrder? @relation("InvoiceToPurchaseOrder", fields: [convertedToPurchaseOrderId], references: [id])
+  version                    Int            @default(1)
+  createdAt                  DateTime       @default(now())
+  updatedAt                  DateTime       @updatedAt
 
   lineItems InvoiceLineItem[]
   versions  InvoiceVersion[]
@@ -281,6 +338,86 @@ model InvoiceVersion {
 
   @@index([invoiceId])
   @@map("invoice_versions")
+}
+
+/**
+ * A Purchase Order we send to a Vendor to buy stock — the inverse
+ * direction of Quotation/Invoice (which we send to Customers). Deliberately
+ * a separate, simpler document type rather than forced into the shared
+ * Quotation/Invoice shape: no CGST/SGST split is shown on the reference
+ * layout (just a flat per-line GST amount and one Total Amount), and it
+ * carries fields quotations/invoices don't need (shippingBy, shippingTerms,
+ * deliveryDate, deliveryAddress, paymentTerms). Tax fields are still
+ * computed with the same calculateTotals() engine for consistency/future
+ * reporting, even though the PDF only surfaces the per-line and grand
+ * totals.
+ */
+model PurchaseOrder {
+  id                  String              @id @default(cuid())
+  number              String?             @unique
+  vendorId            String
+  vendor              Vendor              @relation(fields: [vendorId], references: [id])
+  status              PurchaseOrderStatus @default(DRAFT)
+  issueDate           DateTime
+  deliveryDate        DateTime?
+  shippingBy          String?
+  shippingTerms       String?
+  deliveryAddress     String?
+  subtotalPaise       Int                 @default(0)
+  discountPaise       Int                 @default(0)
+  documentDiscountPct Decimal             @default(0) @db.Decimal(5, 2)
+  cgstPaise           Int                 @default(0)
+  sgstPaise           Int                 @default(0)
+  igstPaise           Int                 @default(0)
+  roundingPaise       Int                 @default(0)
+  grandTotalPaise     Int                 @default(0)
+  notes               String?
+  terms               String?
+  paymentTerms        String?
+  version             Int                 @default(1)
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  convertedFromQuotation Quotation? @relation("QuotationToPurchaseOrder")
+  convertedFromInvoice   Invoice?   @relation("InvoiceToPurchaseOrder")
+
+  lineItems PurchaseOrderLineItem[]
+  versions  PurchaseOrderVersion[]
+
+  @@index([status, issueDate])
+  @@index([vendorId])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderLineItem {
+  id              String        @id @default(cuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  itemId          String?
+  item            Item?         @relation(fields: [itemId], references: [id])
+  description     String
+  hsnSac          String?
+  quantity        Decimal       @db.Decimal(12, 2)
+  unitPricePaise  Int
+  discountPct     Decimal       @default(0) @db.Decimal(5, 2)
+  gstRate         Decimal       @db.Decimal(5, 2)
+  lineTotalPaise  Int
+  sortOrder       Int           @default(0)
+
+  @@index([purchaseOrderId])
+  @@map("purchase_order_line_items")
+}
+
+model PurchaseOrderVersion {
+  id              String        @id @default(cuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  versionNumber   Int
+  snapshot        Json
+  createdAt       DateTime      @default(now())
+
+  @@index([purchaseOrderId])
+  @@map("purchase_order_versions")
 }
 
 model AuditLog {

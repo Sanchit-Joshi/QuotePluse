@@ -92,3 +92,18 @@ export function useConvertQuotationToInvoice() {
     },
   });
 }
+
+export function useConvertQuotationToPurchaseOrder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, vendorId }: { id: string; vendorId: string }) =>
+      apiFetch<{ purchaseOrder: { id: string } }>(`/api/quotations/${id}/convert-to-po`, {
+        method: "POST",
+        body: { vendorId },
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [KEY] });
+      qc.invalidateQueries({ queryKey: ["purchase-orders"] });
+    },
+  });
+}

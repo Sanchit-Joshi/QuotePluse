@@ -22,8 +22,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { DocumentForm } from "@/features/documents/components/document-form";
 import { quotationToFormValues } from "@/features/documents/document-mappers";
+import { ConvertToPurchaseOrderDialog } from "@/features/purchase-orders/components/convert-to-po-dialog";
 import {
   useConvertQuotationToInvoice,
+  useConvertQuotationToPurchaseOrder,
   useDuplicateQuotation,
   useFinalizeQuotation,
   useQuotation,
@@ -38,10 +40,12 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
   const updateMutation = useUpdateQuotation(id);
   const duplicateMutation = useDuplicateQuotation();
   const convertMutation = useConvertQuotationToInvoice();
+  const convertToPoMutation = useConvertQuotationToPurchaseOrder();
   const statusMutation = useUpdateQuotationStatus();
   const finalizeMutation = useFinalizeQuotation();
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [confirmConvert, setConfirmConvert] = useState(false);
+  const [convertToPoOpen, setConvertToPoOpen] = useState(false);
 
   if (isLoading) return <Skeleton className="h-96" />;
   if (isError || !quotation) return <ErrorState onRetry={() => refetch()} />;
@@ -49,6 +53,7 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
   const canApprove = quotation.status === "SENT";
   const canCancel = quotation.status === "SENT" || quotation.status === "APPROVED";
   const canConvert = quotation.status === "SENT" || quotation.status === "APPROVED";
+  const canConvertToPo = quotation.status !== "DRAFT" && !quotation.convertedToPurchaseOrderId;
 
   return (
     <div>
@@ -93,6 +98,11 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
             {canConvert ? (
               <Button onClick={() => setConfirmConvert(true)}>Convert to invoice</Button>
             ) : null}
+            {canConvertToPo ? (
+              <Button variant="outline" onClick={() => setConvertToPoOpen(true)}>
+                Convert to PO
+              </Button>
+            ) : null}
             {canCancel ? (
               <Button variant="destructive" onClick={() => setConfirmCancel(true)}>
                 Cancel
@@ -113,6 +123,18 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
         onUpdate={(docId, payload) => updateMutation.mutateAsync(payload).then(() => ({ id: docId }))}
         onFinalize={(docId) => finalizeMutation.mutateAsync(docId).then(() => undefined)}
         showFinalize={quotation.status === "DRAFT"}
+      />
+
+      <ConvertToPurchaseOrderDialog
+        open={convertToPoOpen}
+        onOpenChange={setConvertToPoOpen}
+        pending={convertToPoMutation.isPending}
+        onConfirm={async (vendorId) => {
+          const result = await convertToPoMutation.mutateAsync({ id, vendorId });
+          toast.success("Purchase order created");
+          setConvertToPoOpen(false);
+          router.push(`/purchase-orders/${result.purchaseOrder.id}`);
+        }}
       />
 
       <AlertDialog open={confirmCancel} onOpenChange={setConfirmCancel}>
