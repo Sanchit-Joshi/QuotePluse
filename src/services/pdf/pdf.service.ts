@@ -65,6 +65,17 @@ async function getBrowser(): Promise<PdfBrowser> {
 
 function appUrl(): string {
   if (process.env.APP_URL) return process.env.APP_URL;
+  // VERCEL_URL is the per-deployment hash URL (e.g.
+  // quotepluse-8mbn2kny4-xxx.vercel.app) — Vercel's Deployment Protection
+  // gates *that* URL behind an SSO login wall even for production
+  // deployments, which Playwright's own internal navigation hit directly
+  // (confirmed via `vercel logs`: it landed on vercel.com/login). Only the
+  // stable production alias is exempt from that wall, and
+  // VERCEL_PROJECT_PRODUCTION_URL is the env var that always points there
+  // regardless of which specific deployment is running — see ADR-016.
+  if (process.env.VERCEL_ENV === "production" && process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+  }
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
   return "http://localhost:3000";
 }
