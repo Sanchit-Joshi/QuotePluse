@@ -33,7 +33,22 @@ export const documentInputSchema = z.object({
 
 export type DocumentInput = z.infer<typeof documentInputSchema>;
 
-export const documentUpdateSchema = documentInputSchema.partial();
+/**
+ * `.partial()` alone doesn't make this a true partial-update schema:
+ * `lineItems`/`documentDiscountPct` carry `.default(...)` on the base
+ * schema, and Zod still applies a field's own default when it's omitted
+ * from the parsed input, `.partial()` or not — an omitted field resolves
+ * to `[]`/`0`, not `undefined`. Both quotation.service.ts and
+ * invoice.service.ts already rely on `input.lineItems ?? existing...`
+ * to mean "field not sent, keep the current value" (see `update()` in
+ * both), so a defaulted-to-`[]`/`0` value silently replaces real data
+ * instead of leaving it alone — confirmed live via ADR-017. Re-declaring
+ * both fields here without `.default()` restores that intended contract.
+ */
+export const documentUpdateSchema = documentInputSchema.partial().extend({
+  lineItems: z.array(lineItemInputSchema).optional(),
+  documentDiscountPct: percentSchema.optional(),
+});
 export type DocumentUpdateInput = z.infer<typeof documentUpdateSchema>;
 
 export const quotationStatusUpdateSchema = z.object({
