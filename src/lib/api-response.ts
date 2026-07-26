@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
+import { Prisma } from "@/generated/prisma/client";
 import {
   ConflictError,
   ImmutableDocumentError,
@@ -8,6 +9,28 @@ import {
 } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { checkRateLimit } from "@/lib/rate-limit";
+
+/**
+ * Postgres/pooler exhaustion and connectivity failures surface through
+ * Prisma as one of these three error classes, with no dedicated `.code`
+ * of their own (the underlying DB message — e.g. Supabase's Supavisor
+ * "(EMAXCONNSESSION) max clients reached in session mode" — is embedded
+ * in `.message`/`.meta` instead). These are the app being temporarily out
+ * of DB capacity, not a bug in the request, so they get their own 503
+ * rather than falling into the generic "Something went wrong" bucket.
+ */
+function isTransientDatabaseError(err: unknown): boolean {
+  if (
+    !(err instanceof Prisma.PrismaClientKnownRequestError) &&
+    !(err instanceof Prisma.PrismaClientInitializationError) &&
+    !(err instanceof Prisma.PrismaClientUnknownRequestError)
+  ) {
+    return false;
+  }
+  return /max clients reached|too many (clients|connections)|connection pool|Can't reach database server|ECONNREFUSED|ETIMEDOUT/i.test(
+    err.message,
+  );
+}
 
 type RouteHandler = (
   req: NextRequest,
@@ -74,6 +97,22 @@ export function withErrorHandling(handler: RouteHandler): RouteHandler {
       if (err instanceof ConflictError || err instanceof ImmutableDocumentError) {
         logger.request({ method, path, status: 409, durationMs: Date.now() - start });
         return NextResponse.json(errorBody("CONFLICT", err.message), { status: 409 });
+      }
+
+      if (isTransientDatabaseError(err)) {
+        logger.error("database_unavailable", {
+          method,
+          path,
+          message: err instanceof Error ? err.message : String(err),
+        });
+        logger.request({ method, path, status: 503, durationMs: Date.now() - start });
+        return NextResponse.json(
+          errorBody(
+            "DATABASE_UNAVAILABLE",
+            "The database is at capacity right now. Please retry in a few seconds.",
+          ),
+          { status: 503, headers: { "Retry-After": "3" } },
+        );
       }
 
       logger.error("unhandled_route_error", {
