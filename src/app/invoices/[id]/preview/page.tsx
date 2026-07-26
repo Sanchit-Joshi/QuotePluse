@@ -18,7 +18,10 @@ export default async function InvoicePreviewPage({ params }: { params: Promise<{
 
   return (
     <div className="mx-auto max-w-3xl">
-      <PreviewToolbar pdfHref={`/api/invoices/${id}/pdf`} />
+      {/* Vercel-only stand-in: /pdf-react (no browser/Chromium cold start).
+          Flip back to `/api/invoices/${id}/pdf` (Playwright, true WYSIWYG)
+          once a non-serverless server is available — see decision-log.md. */}
+      <PreviewToolbar pdfHref={`/api/invoices/${id}/pdf-react`} />
       <div className="rounded-md border bg-white shadow-sm print:border-0 print:shadow-none">
         <DocumentTemplate data={data} />
       </div>

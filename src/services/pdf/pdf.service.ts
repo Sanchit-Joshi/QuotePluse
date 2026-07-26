@@ -16,7 +16,7 @@ interface PdfBrowser {
   newPage(): Promise<PdfPage>;
 }
 interface PdfPage {
-  goto(url: string, opts: { waitUntil: "networkidle" }): Promise<{ status(): number } | null>;
+  goto(url: string, opts: { waitUntil: "load" }): Promise<{ status(): number } | null>;
   pdf(opts: {
     format: string;
     printBackground: boolean;
@@ -130,7 +130,12 @@ export class PdfService {
     const browser = await getBrowser();
     const page = await browser.newPage();
     try {
-      const response = await page.goto(`${appUrl()}${path}`, { waitUntil: "networkidle" });
+      // Preview route is a server component with zero client-side fetches
+      // (DocumentTemplate, PreviewToolbar, and the hidden app-shell chrome
+      // are all static once hydrated) — "networkidle" was paying Playwright's
+      // full 500ms-of-silence tax for no reason. "load" fires the instant
+      // the HTML/CSS finishes, which is all this page ever produces.
+      const response = await page.goto(`${appUrl()}${path}`, { waitUntil: "load" });
       if (response?.status() === 404) {
         throw new NotFoundError("Document", path);
       }
